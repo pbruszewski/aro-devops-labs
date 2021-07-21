@@ -1,0 +1,70 @@
+apiVersion: 1.0.0
+metadata:
+  name: test3
+projects:
+  - name: nodejs-web-app
+    source:
+      location: 'https://github.com/pbruszewski/aro-devops-labs.git'
+      startPoint: main
+      type: git
+components:
+  - id: vscode/typescript-language-features/latest
+    type: chePlugin
+  - id: ms-vscode/node-debug2/latest
+    type: chePlugin
+  - mountSources: true
+    endpoints:
+      - name: nodejs
+        port: 8080
+    memoryLimit: 512Mi
+    type: dockerimage
+    image: 'registry.redhat.io/codeready-workspaces/plugin-java8-rhel8@sha256:bb8ec9c4964e39b335be589f027c4b5ec866fe5f742c7181473e70fff717655d'
+    alias: nodejs
+commands:
+  - name: 1. Run the web app (and download dependencies)
+    actions:
+      - workdir: '${CHE_PROJECTS_ROOT}/nodejs-web-app'
+        type: exec
+        command: npm install; node ./bin/www
+        component: nodejs
+  - name: 2. Download dependencies
+    actions:
+      - workdir: '${CHE_PROJECTS_ROOT}/nodejs-web-app'
+        type: exec
+        command: npm install
+        component: nodejs
+  - name: 3. Run the web app
+    actions:
+      - workdir: '${CHE_PROJECTS_ROOT}/nodejs-web-app'
+        type: exec
+        command: node ./bin/www
+        component: nodejs
+  - name: 4. Run the web app (debugging enabled)
+    actions:
+      - workdir: '${CHE_PROJECTS_ROOT}/nodejs-web-app'
+        type: exec
+        command: node --inspect ./bin/www
+        component: nodejs
+  - name: 5. Stop the web app
+    actions:
+      - type: exec
+        command: 'node_server_pids=$(pgrep -fx ''.*node (--inspect )?app.js'' | tr "\\n" " ") && echo "Stopping node server with PIDs: ${node_server_pids}" && kill -15 ${node_server_pids} &>/dev/null && echo ''Done.'''
+        component: nodejs
+  - name: Attach remote debugger
+    actions:
+      - referenceContent: |
+          {
+            "version": "0.2.0",
+            "configurations": [
+              {
+                "type": "node",
+                "request": "attach",
+                "name": "Attach to Remote",
+                "address": "localhost",
+                "port": 9229,
+                "localRoot": "${workspaceFolder}",
+                "remoteRoot": "${workspaceFolder}"
+              }
+            ]
+          }
+        type: vscode-launch
